@@ -1,16 +1,20 @@
 """
-La siguiente clase esta destinada a limpiar los 
-datos de la base de datos covalto, en base a lo descubierto en el
-en el notebook exploratorio.
+Autor: Luis A. García
+Email: luisgarcia.oq95@gmail.com
+Creado: 22 de octubre del 2025
+
+Este código está diseñado para limpiar los datos del proyecto 
+MLOPS_PYME, sus funciones principales son:
+    • Limpiar valores atípicos
+    • Estandarizar la varibale categória "Retail"
 """
+import pandas as pd
+import numpy as np
+from statsmodels.stats.stattools import medcouple
+from pathlib import Path
+import os
 
-
-class CovaltoCsvDataCleane:
-    import pandas as pd
-    import numpy as np
-    from pathlib import Path
-    from statsmodels.stats.stattools import medcouple
-
+class CovaltoCsvDataCleaner:
     """
     Clase encargada de limpiar los datos provenientes de un archivo csv de la 
     base de datos de covalto.
@@ -70,7 +74,7 @@ class CovaltoCsvDataCleane:
         return self.data
     
     
-    def remove_outliers_medcouple(self, col_interes='ingresos_anuales_mxn',max_retries=3):
+    def remove_outliers(self, col_interes='ingresos_anuales_mxn',max_retries=3):
 
         """
         Elimina los valores atípicos de una columna numérica usando el estadístico MedCouple (MC).
@@ -152,7 +156,7 @@ class CovaltoCsvDataCleane:
                 else:
                     raise ValueError("No se proporcionó una columna válida después de varios intentos.")
 
-    def standardize_sector_column(self):
+    def standardize_sector_column(self,col_name='sector_industrial',max_retries=3):
         """
         Estandariza los nombres del sector industrial en el DataFrame.
         
@@ -161,19 +165,58 @@ class CovaltoCsvDataCleane:
         Parameters
         ----------
         data : pandas.DataFrame
-            DataFrame que contiene la columna 'sector_industrial'.
+            DataFrame a procesar.
         
+        col_name: str
+            Nobre de la columna sobre la cual se estarizarán las categorías
+        
+        max_retries: int
+            Número máximo de intentos para ingregar una columna válida
+            Por defecto es 3.
         Returns
         -------
         pandas.DataFrame
             Copia del DataFrame con los nombres del sector estandarizados.
         """
         
-        if 'sector_industrial' not in self.data.columns:
-            raise ValueError("La columna 'sector_industrial' no existe en el dataset proporcionado.")
-        
-        self.data['sector_industrial'] = self.data['sector_industrial'].replace({
-            'retail': 'Retail'})
-        
-        return self.data
+        attempt = 0
+        while attempt<max_retries:
+            try:
+                self.data[col_name] = self.data[col_name].replace({
+                 'retail': 'Retail'   
+                })
+                return self.data
+            except KeyError:
+                print(f"la columna {col_name} no existe en el DataFrame.")
+                attempt +=1
+                if attempt<max_retries:
+                    col_name = input('Ingrese el nombre correcto de la columna: ')
+                else:
+                    ValueError("No se proporcionó una columna válida después de varios intentos")
 
+
+# Código en acción
+if __name__ == "__main__":
+    # 1. Obteniene la ruta general donde están los datos
+    project_root = next(p for p in Path.cwd().parents if (p / 'data').exists()) 
+    file_path = lambda file : os.path.join(project_root,'data/raw',file)
+
+    # 2. Carga los datos
+    cleaner = CovaltoCsvDataCleaner(file_path('covalto_sme_credit_data.csv'))   # Crear instancia
+    data = cleaner.load_dataset()    
+
+    # 3. Limpia Outliers
+    data = cleaner.remove_outliers(
+        col_interes ='ingresos_anuales_mxn',
+        max_retries=3
+    )
+
+    # 4. Reemplaza retail por Retail en la columna 'sector_industrial'
+    data = cleaner.standardize_sector_column(
+        col_name = 'sector_industrial',
+        max_retries = 3)
+
+    # 5. Guarda el archivo preprocesado
+
+    dir_save_data = project_root/'data/processed'
+    data.to_csv(dir_save_data/ 'covalto_sme_credit_data_clean.csv', index=False)
