@@ -264,7 +264,7 @@ if __name__=="__main__":
     # 7. Divide los datos en entrenamiento y prueba
     data_train, data_test = prepare_data.split_data(
         target='default_12m',
-        test_size=0.05
+        test_size=0.03
     )
 
     # 8. Guarda los datos en archivos scv
