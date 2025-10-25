@@ -1,1 +1,2 @@
 mlflow_postgres/.env
+mlflow_server/.env
